@@ -17,16 +17,16 @@ services:
 
   yolo5:
     build:
-      context: ./yolo5  # Assuming Dockerfile is in the yolo5 directory
+      context: ./yolo5
     container_name: yolo5
     restart: always
     ports:
       - "8081:8081"
     volumes:
-      - ~/.aws:/root/.aws:ro  # Mount AWS credentials directory
+      - ~/.aws:/root/.aws:ro  # Mount AWS credentials directory (read-only)
     environment:
       AWS_REGION: us-east-1
-      BUCKET_NAME: my-bucket-name  # Replace with your S3 bucket name
+      S3_BUCKET_NAME: netflix.jeenge  # Corrected bucket name
     networks:
       - app_network
 

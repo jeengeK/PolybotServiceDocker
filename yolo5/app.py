@@ -1,64 +1,98 @@
 from flask import Flask, request, jsonify
 import boto3
 import os
+import torch
+import time
 from PIL import Image
+import io
+import logging
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
 
 app = Flask(__name__)
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 # Load the YOLOv5 model
-from ultralytics import YOLO
+try:
+    model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+    logging.info("YOLOv5 model loaded successfully.")
+except Exception as e:
+    logging.error(f"Error loading YOLOv5 model: {e}")
+    model = None  # Set model to None in case of loading error
 
-model = YOLO('yolov5s.pt')  # Load the lightweight YOLOv5s model
- # Using a lightweight model
+# Get AWS credentials from environment variables
+aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
+aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+aws_region = os.environ.get("AWS_REGION", "us-east-1")
 
-# AWS S3 setup
-AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
-BUCKET_NAME = os.getenv('netflix.jeenge')
-s3_client = boto3.client('s3')
+# Get S3 bucket name from env variable
+s3_bucket_name = os.environ.get('S3_BUCKET_NAME')
+
+if not all([aws_access_key_id, aws_secret_access_key, s3_bucket_name]):
+    logging.error("Missing AWS or S3 configuration. Check environment variables.")
+    exit(1) # Exit if critical env variables are missing
+else:
+    logging.info("AWS and S3 configurations found.")
+
+
+
+s3 = boto3.client(
+    's3',
+    region_name=aws_region,
+    aws_access_key_id=aws_access_key_id,
+    aws_secret_access_key=aws_secret_access_key
+)
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    start_time = time.time()
     try:
-        # Get the image name from the query parameter
         img_name = request.args.get('imgName')
         if not img_name:
-            return jsonify({"error": "imgName query parameter is required"}), 400
+            return jsonify({'error': 'imgName parameter is missing'}), 400
 
-        # Define local file path to save the downloaded image
-        local_img_path = f"/tmp/{img_name}"
-
-        # TODO: Download the image from S3
+        # Download the image from the S3 bucket
         try:
-            s3_client.download_file(BUCKET_NAME, img_name, local_img_path)
+            logging.info(f"Downloading image {img_name} from S3 bucket {s3_bucket_name}")
+            response = s3.get_object(Bucket=s3_bucket_name, Key=img_name)
+            image_data = response['Body'].read()
+            logging.info(f"Image {img_name} downloaded successfully from S3.")
         except Exception as e:
-            return jsonify({"error": f"Failed to download image from S3: {str(e)}"}), 500
+            logging.error(f"Error downloading image from S3: {e}")
+            return jsonify({'error': f"Error downloading image from S3: {e}"}), 500
 
-        # TODO: Load the image using PIL
+        # Open and prepare the image
         try:
-            img = Image.open(local_img_path)
+            image = Image.open(io.BytesIO(image_data)).convert('RGB')
+            logging.info(f"Image {img_name} opened and converted to RGB.")
         except Exception as e:
-            return jsonify({"error": f"Failed to open the image: {str(e)}"}), 400
+            logging.error(f"Error opening image: {e}")
+            return jsonify({'error': f"Error opening image: {e}"}), 500
 
-        # TODO: Perform object detection
-        results = model.predict(img)
-        detected_objects = []
-        for result in results:
-            for box, label, conf in zip(result.boxes.xyxy, result.boxes.names, result.boxes.conf):
-                detected_objects.append({
-                    "label": label,
-                    "confidence": float(conf),
-                    "bbox": [float(coord) for coord in box]
-                })
+        if model is None:
+            return jsonify({'error': 'YOLOv5 model is not loaded'}), 500
 
-        # Clean up local file
-        if os.path.exists(local_img_path):
-            os.remove(local_img_path)
+        # Perform object detection
+        try:
+            results = model(image)
+            predictions = results.pandas().xyxy[0].to_dict(orient="records")
+            logging.info(f"Object detection completed successfully for image {img_name}.")
+        except Exception as e:
+            logging.error(f"Error performing object detection: {e}")
+            return jsonify({'error': f"Error performing object detection: {e}"}), 500
 
-        # Return the detected objects
-        return jsonify({"detected_objects": detected_objects}), 200
+        end_time = time.time()
+        prediction_time = end_time - start_time
+        logging.info(f"Total prediction time for {img_name}: {prediction_time:.4f} seconds.")
 
+        return jsonify({'predictions': predictions, 'prediction_time': prediction_time})
     except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+        logging.error(f"Error during prediction process: {e}")
+        return jsonify({'error': f"Error during prediction process: {e}"}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8081)
