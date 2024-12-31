@@ -1,37 +1,115 @@
 version: '3.9'
 
 services:
-  mongodb:
+  mongo1:
     image: mongo:4.4
-    container_name: mongodb
-    restart: always
+    container_name: mongo1
+    networks:
+      - mongoCluster
     ports:
       - "27017:27017"
+    command: ["mongod", "--replSet", "myReplicaSet", "--bind_ip", "0.0.0.0"] # Removed mongo1
     volumes:
-      - mongodb_data:/data/db
+      - mongo1-data:/data/db # Using named volume
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
-    networks:
-      - app_network
+      - MONGO_URI=${MONGO_URI} #Consider removing these environment variables from mongo containers
+      - MONGO_DB=${MONGO_DB}
+      - MONGO_COLLECTION=${MONGO_COLLECTION}
 
-  yolo5:
-    build:
-      context: ./yolo5
+  mongo2:
+    image: mongo:4.4
+    container_name: mongo2
+    networks:
+      - mongoCluster
+    ports:
+      - "27018:27017"
+    command: ["mongod", "--replSet", "myReplicaSet", "--bind_ip", "0.0.0.0"] # Removed mongo2
+    volumes:
+      - mongo2-data:/data/db  # Using named volume
+    environment:
+      - MONGO_URI=${MONGO_URI}  #Consider removing these environment variables from mongo containers
+      - MONGO_DB=${MONGO_DB}
+      - MONGO_COLLECTION=${MONGO_COLLECTION}
+
+  mongo3:
+    image: mongo:4.4
+    container_name: mongo3
+    networks:
+      - mongoCluster
+    ports:
+      - "27019:27017"
+    command: ["mongod", "--replSet", "myReplicaSet", "--bind_ip", "0.0.0.0"] # Removed mongo3
+    volumes:
+      - mongo3-data:/data/db  # Using named volume
+    environment:
+      - MONGO_URI=${MONGO_URI}  #Consider removing these environment variables from mongo containers
+      - MONGO_DB=${MONGO_DB}
+      - MONGO_COLLECTION=${MONGO_COLLECTION}
+
+  mongo-init:
+    image: mongo:4.4
+    container_name: mongo-init
+    networks:
+      - mongoCluster
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    entrypoint: >
+      sh -c "
+        sleep 10;
+        mongo --host mongo1 --eval '
+          rs.initiate({
+            _id: \"myReplicaSet\",
+            members: [
+              {_id: 0, host: \"mongo1:27017\"},
+              {_id: 1, host: \"mongo2:27017\"},
+              {_id: 2, host: \"mongo3:27017\"}
+            ]
+          })
+        ';
+        "
+
+  yolov5:
+    image: jeenge/yolo5:1.0.1
     container_name: yolo5
-    restart: always
     ports:
       - "8081:8081"
-    volumes:
-      - ~/.aws:/root/.aws:ro  # Mount AWS credentials directory (read-only)
     environment:
-      AWS_REGION: us-east-1
-      S3_BUCKET_NAME: netflix.jeenge  # Corrected bucket name
+      - S3_BUCKET_NAME=netflix.jeenge
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_TOKEN}
+      - MONGO_URI=mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=myReplicaSet # Correct URI
+      - MONGO_DB=default_db
+      - MONGO_COLLECTION=predictions
     networks:
-      - app_network
+      - mongoCluster
 
-volumes:
-  mongodb_data:
+  polybot-service:
+    image: jeenge/polybot:1.0.1
+    container_name: polybot
+    platform: linux/amd64
+    ports:
+      - "8443:8443"
+    environment:
+      MONGO_URI: mongodb://mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=myReplicaSet # Correct URI
+      TELEGRAM_APP_URL: ${TELEGRAM_APP_URL}
+      S3_BUCKET_NAME: ${BUCKET_NAME}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    volumes:
+      - ~/.aws:/root/.aws
+      - ./telegram_token.txt:/run/secrets/telegram_token
+      - ./certs/cert.pem:/app/cert.pem
+      - ./certs/key.pem:/app/key.pem
+    depends_on:
+      - yolov5
+    networks:
+      - mongoCluster
 
 networks:
-  app_network:
+  mongoCluster:
+    driver: bridge
+
+volumes:
+  mongo1-data:
+  mongo2-data:
+  mongo3-data:

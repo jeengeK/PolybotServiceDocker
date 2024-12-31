@@ -92,6 +92,35 @@ def predict():
     except Exception as e:
         logging.error(f"Error during prediction process: {e}")
         return jsonify({'error': f"Error during prediction process: {e}"}), 500
+    # TODO: Download the image from the S3 bucket
+    try:
+        logging.info(f"Downloading image {img_name} from S3 bucket {s3_bucket_name}")
+        response = s3.get_object(Bucket=s3_bucket_name, Key=img_name)
+        image_data = response['Body'].read()
+        logging.info(f"Image {img_name} downloaded successfully from S3.")
+    except Exception as e:
+        logging.error(f"Error downloading image from S3: {e}")
+        return jsonify({'error': f"Error downloading image from S3: {e}"}), 500
+
+    # TODO: Open and prepare the image
+    try:
+        image = Image.open(io.BytesIO(image_data)).convert('RGB')
+        logging.info(f"Image {img_name} opened and converted to RGB.")
+    except Exception as e:
+        logging.error(f"Error opening image: {e}")
+        return jsonify({'error': f"Error opening image: {e}"}), 500
+
+    if model is None:
+        return jsonify({'error': 'YOLOv5 model is not loaded'}), 500
+
+    # TODO: Perform object detection
+    try:
+        results = model(image)
+        predictions = results.pandas().xyxy[0].to_dict(orient="records")
+        logging.info(f"Object detection completed successfully for image {img_name}.")
+    except Exception as e:
+        logging.error(f"Error performing object detection: {e}")
+        return jsonify({'error': f"Error performing object detection: {e}"}), 500
 
 
 if __name__ == '__main__':
