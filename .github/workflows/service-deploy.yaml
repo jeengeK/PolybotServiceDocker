@@ -20,9 +20,8 @@ jobs:
 
       - name: Build and push Polybot image
         run: |
-          cd polybot
           IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/polybot:${{ github.run_number }}
-          docker build -t $IMAGE_NAME .
+          docker build -t $IMAGE_NAME ./polybot
           docker push $IMAGE_NAME
 
   Yolo5Build:
@@ -36,9 +35,8 @@ jobs:
 
       - name: Build and push Yolo5 image
         run: |
-          cd yolo5
           IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/yolo5:${{ github.run_number }}
-          docker build -t $IMAGE_NAME .
+          docker build -t $IMAGE_NAME ./yolo5
           docker push $IMAGE_NAME
 
   Deploy:
@@ -82,4 +80,3 @@ jobs:
             docker rm -v -f $(docker ps -qa)
             docker-compose down
             docker-compose up -d
-#
