@@ -13,10 +13,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Build Docker image
+      - name: jeenge/yolo5:1.0.1
         run: |
           docker build -t ${{ github.repository }}:${{ github.sha }} .
-          docker tag ${{ github.repository }}:${{ github.sha }} your-dockerhub-username/my-app:latest
+          docker tag ${{ github.repository }}:${{ github.sha }} /home/ubuntu/PolybotServiceDocker
 
       - name: Login to DockerHub
         uses: docker/login-action@v2
@@ -26,15 +26,15 @@ jobs:
 
       - name: Push Docker image
         run: |
-          docker push your-dockerhub-username/my-app:latest
+          docker push jeenge/yolo5:1.0.1
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-            cd /home/ec2-user/my-project
+            cd /home/ubuntu/PolybotServiceDocker
             docker-compose pull
             docker-compose up -d
