@@ -57,7 +57,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           source: docker-compose.yaml
-          target: ~/PolybotServiceDocker/yolo5
+          target: ~/home/ubuntu/PolybotServiceDocker/yolo5
 
       - name: Update the Docker Compose project on EC2
         uses: appleboy/ssh-action@master
