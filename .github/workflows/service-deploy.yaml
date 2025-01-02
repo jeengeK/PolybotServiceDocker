@@ -67,7 +67,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             sudo apt update && sudo apt install -y jq
-            cd ~/PolybotServiceDocker/yolo5
+            cd ~/home/ubuntu/PolybotServiceDocker/yolo5
             echo -n "${{ secrets.TELEGRAM_TOKEN }}" > telegram_bot_token.secret
             NGROK_DOMAIN=$(curl -s localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
             cat <<EOF > .env
