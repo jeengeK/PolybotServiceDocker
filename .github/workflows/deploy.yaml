@@ -28,7 +28,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            cd /home/jeenge/PolybotServiceDocker/yolo5
+            cd /home/ubuntu/PolybotServiceDocker/yolo5
             docker-compose pull
             docker-compose up -d
 
