@@ -1,5 +1,6 @@
 import os
 import time
+import bot
 from flask import Flask, request, jsonify
 import base64  # Import base64 module
 from PIL import Image  # Import Pillow for image handling
@@ -89,4 +90,5 @@ def process_image():
 PORT = int(os.environ.get("PORT", "8080"))
 if __name__ == '__main__':
    app.run(debug=True, host='0.0.0.0', port=PORT)
+
 

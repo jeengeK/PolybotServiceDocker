@@ -109,10 +109,10 @@ class Img:
 
                 # TODO: Download the image from the S3 bucket
                 try:
-                    logging.info(f"Downloading image {img_name} from S3 bucket {s3_bucket_name}")
-                    response = s3.get_object(Bucket=s3_bucket_name, Key=img_name)
+                    logging.info(f"Downloading image {imgName} from S3 bucket {s3_bucket_name}")
+                    response = s3.get_object(Bucket=s3_bucket_name, Key=imgName)
                     image_data = response['Body'].read()
-                    logging.info(f"Image {img_name} downloaded successfully from S3.")
+                    logging.info(f"Image {imgName} downloaded successfully from S3.")
                 except Exception as e:
                     logging.error(f"Error downloading image from S3: {e}")
                     return jsonify({'error': f"Error downloading image from S3: {e}"}), 500
@@ -120,7 +120,7 @@ class Img:
                 # TODO: Open and prepare the image
                 try:
                     image = Image.open(io.BytesIO(image_data)).convert('RGB')
-                    logging.info(f"Image {img_name} opened and converted to RGB.")
+                    logging.info(f"Image {imgName} opened and converted to RGB.")
                 except Exception as e:
                     logging.error(f"Error opening image: {e}")
                     return jsonify({'error': f"Error opening image: {e}"}), 500
@@ -132,7 +132,7 @@ class Img:
                 try:
                     results = model(image)
                     predictions = results.pandas().xyxy[0].to_dict(orient="records")
-                    logging.info(f"Object detection completed successfully for image {img_name}.")
+                    logging.info(f"Object detection completed successfully for image {imgName}.")
                 except Exception as e:
                     logging.error(f"Error performing object detection: {e}")
                     return jsonify({'error': f"Error performing object detection: {e}"}), 500
