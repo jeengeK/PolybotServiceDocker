@@ -13,11 +13,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Build Docker image
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Docker image
+        id: build-and-push
         run: |
-          docker build -t jeenge/yolo5:1.0.1 .
-          echo IMAGE_NAME=<jeenge/yolo5:1.0.1> >> $GITHUB_OUTPUT
-        id: image_build
+           IMAGE_NAME=jeenge/yolo5:1.0.1
+           docker build -t $IMAGE_NAME .
+           docker push $IMAGE_NAME
+           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_OUTPUT
 
       - name: Login to EC2 via SSH
         uses: appleboy/ssh-action@master
@@ -28,23 +39,14 @@ jobs:
            script: |
              echo "Logging to EC2"
 
-      - name: Copy Docker Compose file and image to EC2
+      - name: Copy docker-compose file to EC2
         uses: appleboy/scp-action@master
         with:
          host: ${{ secrets.EC2_HOST }}
          username: ubuntu
          key: ${{ secrets.EC2_PRIVATE_KEY }}
-         source: ./docker-compose.yaml,./Dockerfile
+         source: ./docker-compose.yaml
          target: /home/jeenge/PolybotServiceDocker
-
-      - name: Copy Docker Image
-        uses: appleboy/scp-action@master
-        with:
-         host: ${{ secrets.EC2_HOST }}
-         username: ubuntu
-         key: ${{ secrets.EC2_PRIVATE_KEY }}
-         source: .
-         target: /home/jeenge/PolybotServiceDocker/yolo5
 
       - name: Deploy to EC2 with Docker Compose
         uses: appleboy/ssh-action@master
@@ -53,7 +55,7 @@ jobs:
           username: ubuntu  # Or your EC2 username
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-             cd /home/jeenge/PolybotServiceDocker/yolo5
-             docker pull ${{ steps.image_build.outputs.IMAGE_NAME }}
+             cd /home/jeenge/PolybotServiceDocker
+             docker pull ${{ steps.build-and-push.outputs.IMAGE_NAME }}
              docker-compose up -d --force-recreate
              docker system prune -a -f
