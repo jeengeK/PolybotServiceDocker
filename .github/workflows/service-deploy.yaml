@@ -59,7 +59,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           source: docker-compose.yaml
-          target: ~/PolybotService/
+          target: ~/PolybotServiceDocker/yolo5
 
       - name: Update the Docker Compose project on EC2
         uses: appleboy/ssh-action@master
@@ -69,7 +69,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             sudo apt update && sudo apt install -y jq
-            cd ~/PolybotService/
+            cd ~/PolybotServiceDocker/yolo5
             echo -n "${{ secrets.TELEGRAM_TOKEN }}" > telegram_bot_token.secret
             NGROK_DOMAIN=$(curl -s localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
             cat <<EOF > .env
