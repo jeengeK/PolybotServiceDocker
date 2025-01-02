@@ -3,38 +3,57 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-      - main # Or your main branch name
+      - main # Or your preferred branch
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: jeenge/yolo5:1.0.1
+      - name: Build Docker image
         run: |
-          docker build -t ${{ github.repository }}:${{ github.sha }} .
-          docker tag ${{ github.repository }}:${{ github.sha }} /home/ubuntu/PolybotServiceDocker
+          docker build -t jeenge/yolo5:1.0.1 .
+          echo IMAGE_NAME=<jeenge/yolo5:1.0.1> >> $GITHUB_OUTPUT
+        id: image_build
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v2
+      - name: Login to EC2 via SSH
+        uses: appleboy/ssh-action@master
         with:
-          username: ${{secrets.DOCKERHUB_USERNAME}}
-          password: ${{secrets.DOCKERHUB_PASSWORD}}
+           host: ${{ secrets.EC2_HOST }}
+           username: ubuntu  # Or your EC2 username
+           key: ${{ secrets.EC2_PRIVATE_KEY }}
+           script: |
+             echo "Logging to EC2"
 
-      - name: Push Docker image
-        run: |
-          docker push jeenge/yolo5:1.0.1
+      - name: Copy Docker Compose file and image to EC2
+        uses: appleboy/scp-action@master
+        with:
+         host: ${{ secrets.EC2_HOST }}
+         username: ubuntu
+         key: ${{ secrets.EC2_PRIVATE_KEY }}
+         source: ./docker-compose.yml,./Dockerfile
+         target: /home/ubuntu/
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v0.1.10
+      - name: Copy Docker Image
+        uses: appleboy/scp-action@master
+        with:
+         host: ${{ secrets.EC2_HOST }}
+         username: ubuntu
+         key: ${{ secrets.EC2_PRIVATE_KEY }}
+         source: .
+         target: /home/ubuntu/
+
+      - name: Deploy to EC2 with Docker Compose
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
+          username: ubuntu  # Or your EC2 username
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-            cd /home/ubuntu/PolybotServiceDocker
-            docker-compose pull
-            docker-compose up -d
+             cd /home/ubuntu/PolybotServiceDocker
+             docker pull ${{ steps.image_build.outputs.IMAGE_NAME }}
+             docker-compose up -d --force-recreate
+             docker system prune -a -f
