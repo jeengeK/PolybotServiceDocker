@@ -46,7 +46,7 @@ jobs:
          username: ubuntu
          key: ${{ secrets.EC2_PRIVATE_KEY }}
          source: ./docker-compose.yaml
-         target: /home/jeenge/PolybotServiceDocker
+         target: /home/jeenge/PolybotServiceDocker/yolo5
 
       - name: Deploy to EC2 with Docker Compose
         uses: appleboy/ssh-action@master
@@ -55,7 +55,7 @@ jobs:
           username: ubuntu  # Or your EC2 username
           key: ${{ secrets.EC2_PRIVATE_KEY }}
           script: |
-             cd /home/jeenge/PolybotServiceDocker
+             cd /home/jeenge/PolybotServiceDocker/yolo5
              docker pull ${{ steps.build-and-push.outputs.IMAGE_NAME }}
              docker-compose up -d --force-recreate
              docker system prune -a -f
