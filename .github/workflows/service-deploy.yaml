@@ -67,16 +67,16 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             sudo apt update && sudo apt install -y jq
-            /home/jeenge/PolybotServiceDocker/yolo5/Dockerfile
+            sudo apt install -y docker-compose
             echo -n "${{ secrets.TELEGRAM_TOKEN }}" > telegram_bot_token.secret
-            NGROK_DOMAIN=$(curl -s localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+            
             cat <<EOF > .env
             POLYBOT_IMG_NAME=${{ secrets.DOCKERHUB_USERNAME }}/polybot:${{ github.run_number }}
             YOLO5_IMG_NAME=${{ secrets.DOCKERHUB_USERNAME }}/yolo5:${{ github.run_number }}
-            TELEGRAM_APP_URL=$NGROK_DOMAIN
+            TELEGRAM_APP_URL=http://${{ env.EC2_PUBLIC_IP }}:8000 
             TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}
             BUCKET_NAME=${{ secrets.BUCKET_NAME }}
             EOF
-            docker rm -v -f $(docker ps -qa)
-            docker-compose down
-            docker-compose up -d
+            sudo docker rm -v -f $(sudo docker ps -qa)
+            sudo docker-compose down
+            sudo docker-compose up -d
